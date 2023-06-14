@@ -1,2 +1,3 @@
 test.ipynb
-src/__pycache__/*
+*.pyc
+
