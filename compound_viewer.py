@@ -1,8 +1,7 @@
-import panel as pn
-from bokeh.models.formatters import PrintfTickFormatter
 import re
 import pandas as pd
-from src.chemistry import get_structure, draw_compound, get_smiles
+import panel as pn
+from src.chemistry import draw_compound, get_smiles
 
 pn.extension('tabulator')
 
@@ -17,10 +16,8 @@ compound_slider = pn.widgets.IntSlider(name='Select Compound',
                                        disabled=True)
 # dataframe widget
 df_dict = {'Compound ID': [], 'SMILES': []}
-df = pd.DataFrame(df_dict,dtype='object')
+df = pd.DataFrame(df_dict, dtype='object')
 compound_table = pn.widgets.Tabulator(df, height=400, width=800)
-
-
 
 
 def update_compounds(event):
@@ -35,7 +32,6 @@ def update_compounds(event):
         compound_image.object = image
 
         df_dict = {'Compound ID': compounds,
-                   'Structure': [draw_compound(compound) for compound in compounds],  # noqa: E501
                    'SMILES': [get_smiles(compound) for compound in compounds]}
         df = pd.DataFrame(df_dict)
         compound_table.value = df
@@ -55,7 +51,6 @@ def update_slider(event):
         compound_table.selection = [event.new]
     else:
         compound_image.object = None
-
 
 
 compound_input.param.watch(update_compounds, 'value')
