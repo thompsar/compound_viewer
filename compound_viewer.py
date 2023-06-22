@@ -1,66 +1,55 @@
 import re
-import pandas as pd
 import panel as pn
-from src.chemistry import draw_compound, get_smiles
+from src.chemistry import ChemLibrary
 
 pn.extension('tabulator')
 
-placeholder = 'Enter Chembridge Compound ID(s) separated by commas or new lines'
-compound_input = pn.widgets.input.TextAreaInput(name='Compound ID(s)',
-                                                placeholder=placeholder,
-                                                height=400)
-compound_image = pn.pane.PNG(object=None, height=400, width=400)
-compound_slider = pn.widgets.IntSlider(name='Select Compound',
-                                       start=0,
-                                       end=1,
-                                       disabled=True)
-# dataframe widget
-df_dict = {'Compound ID': [], 'SMILES': []}
-df = pd.DataFrame(df_dict, dtype='object')
-compound_table = pn.widgets.Tabulator(df, height=400, width=800)
+class ChemGUI():
+    
+    def __init__(self):
+        # Variables
+        self.placeholder = 'Select library then enter Chembridge Compound ID(s) separated by commas or new lines'
+        self.libraries = ['cns', 'diverset']
+        self.visible_columns = ['Compound', 'SMILES', 'Molecular Weight', 'LogP']
+        # Widgets
+        self.library_select = pn.widgets.RadioButtonGroup(name='Library',
+                                                    options=self.libraries,
+                                                    value=self.libraries[0])
+        self.compound_library = ChemLibrary(self.library_select.value)
 
+        self.compound_input = pn.widgets.input.TextAreaInput(name='Compound ID(s)',
+                                                        placeholder=self.placeholder,
+                                                        height=400)
 
-def update_compounds(event):
-    compounds = re.findall(r'\d+', compound_input.value)
-    if compounds:
-        compound_slider.disabled = False
-        compound_slider.start = 0
-        compound_slider.end = len(compounds) - 1
-        compound_slider.value = 0
-        compound = compounds[0]
-        image = draw_compound(compound)
-        compound_image.object = image
+        self.compound_load = pn.widgets.Button(name='Load Compounds', button_type='primary')
+        self.library_subset = self.compound_library.get_compounds([])
+        self.compound_table = pn.widgets.Tabulator(self.library_subset[self.visible_columns], height=800, width=800)
 
-        df_dict = {'Compound ID': compounds,
-                   'SMILES': [get_smiles(compound) for compound in compounds]}
-        df = pd.DataFrame(df_dict)
-        compound_table.value = df
-    else:
-        compound_slider.disabled = True
-        compound_slider.value = 0
-        compound_image.object = None
+        self.library_select.param.watch(self.update_library, 'value')
+        self.compound_load.on_click(self.update_compounds)
 
+    def update_library(self, event):
+            
+            self.compound_library = ChemLibrary(self.library_select.value)
+            self.compound_input.value = ''
+            self.library_subset = self.compound_library.get_compounds([])
+            self.compound_table.value = self.library_subset[self.visible_columns]
 
-def update_slider(event):
-    compounds = re.findall(r'\d+', compound_input.value)
-    if compounds:
-        compound = compounds[event.new]
-        image = draw_compound(compound)
-        compound_image.object = image
-        # compound_table.param.set_property(selected=[event.new])
-        compound_table.selection = [event.new]
-    else:
-        compound_image.object = None
+    def update_compounds(self, event):
+        compounds = re.findall(r'\d+', self.compound_input.value)
+        if compounds:
+            self.library_subset = self.compound_library.get_compounds(compounds)
+            self.compound_table.value = self.library_subset[self.visible_columns]
+        
 
+    
 
-compound_input.param.watch(update_compounds, 'value')
-compound_slider.param.watch(update_slider, 'value')
+chemGUI = ChemGUI()
 
-
-app = pn.Column(
-    pn.Row(pn.Column(compound_input, compound_slider, styles=dict(background='WhiteSmoke')),
-           pn.Column(compound_image)),
-    pn.Row(compound_table)
-    )
-
-app.servable()
+pn.Row(
+     pn.Column(chemGUI.library_select,
+               chemGUI.compound_input,
+               chemGUI.compound_load,
+               styles=dict(background='WhiteSmoke')),
+     pn.Column(chemGUI.compound_table)
+     ).servable()
