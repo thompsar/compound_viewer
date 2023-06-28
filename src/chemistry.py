@@ -1,6 +1,7 @@
 import warnings
 import requests
 import pandas as pd
+import numpy as np
 from bs4 import BeautifulSoup
 from rdkit import Chem
 from rdkit.Chem import Draw
@@ -111,7 +112,7 @@ class ChemLibrary:
         molfile = self.library.loc[index, 'Structure'].values[0]
         mol = Chem.MolFromMolBlock(molfile)
         self.library.loc[index, 'SMILES'] = Chem.MolToSmiles(mol)
-        self.library.loc[index, 'Molecular Weight'] = Descriptors.MolWt(mol)
+        self.library.loc[index, 'Molecular Weight'] = np.round(Descriptors.MolWt(mol),2)
 
     def draw_compound(self, compound_id, transparent=False, legend=None):
         """Draws Chembridge compound
