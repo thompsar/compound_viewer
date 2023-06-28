@@ -1,55 +1,61 @@
 import re
 import panel as pn
+import param
 from src.chemistry import ChemLibrary
 
-pn.extension('tabulator')
+pn.extension('tabulator', template='fast')
 
-class ChemGUI():
-    
-    def __init__(self):
-        # Variables
-        self.placeholder = 'Select library then enter Chembridge Compound ID(s) separated by commas or new lines'
-        self.libraries = ['cns', 'diverset']
-        self.visible_columns = ['Compound', 'SMILES', 'Molecular Weight', 'LogP']
-        # Widgets
-        self.library_select = pn.widgets.RadioButtonGroup(name='Library',
-                                                    options=self.libraries,
-                                                    value=self.libraries[0])
-        self.compound_library = ChemLibrary(self.library_select.value)
 
-        self.compound_input = pn.widgets.input.TextAreaInput(name='Compound ID(s)',
-                                                        placeholder=self.placeholder,
-                                                        height=400)
+class ChemGUI(param.Parameterized):
+    # note, below loads both libraries into memory simultaneously
+    # probably not the best as the libraries grow.
+    libraries = {'cns': ChemLibrary('cns'), 'diverset': ChemLibrary('diverset')}
+    default_string = 'Select library then enter Chembridge Compound ID(s)'
+    visible_columns = ['Compound', 'SMILES', 'Molecular Weight', 'LogP']
+    # Widgets
+    lib_select = param.Selector(objects=libraries, default=libraries['cns'])
+    compound_input = param.String()
+    compound_df = param.DataFrame(libraries['cns'].library[visible_columns], precedence=-1)
+    load_button = param.Action(lambda x: x.param.trigger('load_button'), label='Load Compounds')
+    save_button = param.Action(lambda x: x.param.trigger('save_button'), label='Save Spreadsheet')
 
-        self.compound_load = pn.widgets.Button(name='Load Compounds', button_type='primary')
-        self.library_subset = self.compound_library.get_compounds([])
-        self.compound_table = pn.widgets.Tabulator(self.library_subset[self.visible_columns], height=800, width=800)
+    @param.depends('lib_select', watch=True)
+    def update_compound_df(self):
+        self.compound_df = self.lib_select.library[self.visible_columns]
+        self.compound_input = ''
+        self.param.compound_df.precedence = -1
 
-        self.library_select.param.watch(self.update_library, 'value')
-        self.compound_load.on_click(self.update_compounds)
-
-    def update_library(self, event):
-            
-            self.compound_library = ChemLibrary(self.library_select.value)
-            self.compound_input.value = ''
-            self.library_subset = self.compound_library.get_compounds([])
-            self.compound_table.value = self.library_subset[self.visible_columns]
-
-    def update_compounds(self, event):
-        compounds = re.findall(r'\d+', self.compound_input.value)
+    @param.depends('load_button', watch=True)
+    def load_compounds(self):
+        compounds = re.findall(r'\d+', self.compound_input)
         if compounds:
-            self.library_subset = self.compound_library.get_compounds(compounds)
-            self.compound_table.value = self.library_subset[self.visible_columns]
-        
+            self.compound_df = self.lib_select.get_compounds(compounds)[self.visible_columns]
+            self.param.compound_df.precedence = 0
 
-    
+    @param.depends('save_button', watch=True)
+    def save_spreadsheet(self):
+        self.compound_df.to_excel('compound_list.xlsx', index=False)
+
 
 chemGUI = ChemGUI()
 
-pn.Row(
-     pn.Column(chemGUI.library_select,
-               chemGUI.compound_input,
-               chemGUI.compound_load,
-               styles=dict(background='WhiteSmoke')),
-     pn.Column(chemGUI.compound_table)
-     ).servable()
+pn.Param(chemGUI.param,
+         parameters=['lib_select', 'compound_input'],
+         widgets={'lib_select': pn.widgets.RadioButtonGroup,
+                  'compound_input': {'type': pn.widgets.TextAreaInput,
+                                     'placeholder': chemGUI.default_string,
+                                     'height': 400,
+                                     'name': 'Compound ID(s)'}},
+         show_name=False).servable(target='sidebar')
+
+pn.Param(chemGUI.param,
+         parameters=['load_button', 'save_button'],
+         default_layout=pn.Row,
+         margin=(-2, 5),
+         show_name=False).servable(target='sidebar')
+
+pn.Param(chemGUI.param,
+         parameters=['compound_df'],
+         widgets={'compound_df': {'type': pn.widgets.Tabulator,
+                                  'disabled': True}},
+         show_name=False).servable(target='main', title='ChemBridge Compound Viewer')

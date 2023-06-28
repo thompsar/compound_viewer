@@ -2,3 +2,5 @@ test.ipynb
 *.pyc
 
 compound_viewer2.py
+compound_list.xlsx
+compound_viewer3.py
