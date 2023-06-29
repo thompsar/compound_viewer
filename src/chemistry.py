@@ -21,7 +21,8 @@ class ChemLibrary:
         """
         Loads chemical library file
         """
-        self.library_file = self.library_name + '.csv'
+        path = 'compound_libraries/'
+        self.library_file = path+self.library_name + '.csv'
         try:
             self.library = pd.read_csv(self.library_file, dtype='object')
         except FileNotFoundError:
@@ -112,7 +113,7 @@ class ChemLibrary:
         molfile = self.library.loc[index, 'Structure'].values[0]
         mol = Chem.MolFromMolBlock(molfile)
         self.library.loc[index, 'SMILES'] = Chem.MolToSmiles(mol)
-        self.library.loc[index, 'Molecular Weight'] = np.round(Descriptors.MolWt(mol),2)
+        self.library.loc[index, 'Molecular Weight'] = np.round(Descriptors.MolWt(mol), 2)
 
     def draw_compound(self, compound_id, transparent=False, legend=None):
         """Draws Chembridge compound
@@ -135,7 +136,7 @@ class ChemLibrary:
         dopts.legendFontSize = 80
 
         chem_info = self.get_compounds(compound_id)
-        molfile = chem_info['Structure']
+        molfile = chem_info['Structure'].values[0]
 
         mol = Chem.MolFromMolBlock(molfile)
         img = Draw.MolToImage(mol, size=(600, 600), legend=legend, drawOptions=dopts)
@@ -168,7 +169,7 @@ class ChemLibrary:
         mols = {}
         for compound_id in compound_ids:
             chem_info = self.get_compounds(compound_id)
-            molfile = chem_info['Structure']
+            molfile = chem_info['Structure'].values[0]
             # force str for compound_id in dict key to eliminate dupes
             # and prevent error in Draw.MolsToGridImage legends
             mols[str(compound_id)] = Chem.MolFromMolBlock(molfile)
