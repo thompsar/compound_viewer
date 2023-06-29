@@ -7,13 +7,11 @@ pn.extension('tabulator', template='fast')
 
 
 class ChemGUI(param.Parameterized):
-    # note, below loads both libraries into memory simultaneously
-    # probably not the best as the libraries grow.
-    libraries = {'cns': ChemLibrary('cns'), 'diverset': ChemLibrary('diverset')}
+    libraries = ['cns', 'diverset']
     default_string = 'Select library then enter Chembridge Compound ID(s)'
     visible_columns = ['Compound', 'SMILES', 'Molecular Weight', 'LogP']
     # Widgets
-    lib_select = param.Selector(objects=libraries, default=libraries['cns'])
+    lib_select = param.Selector(objects=libraries, default=libraries[0])
     compound_input = param.String()
     selected_compound = param.String()
     load_button = param.Action(lambda x: x.param.trigger('load_button'), label='Load Compounds')
@@ -21,7 +19,8 @@ class ChemGUI(param.Parameterized):
 
     def __init__(self, **params):
         super().__init__(**params)
-        library_df = self.libraries['cns'].library[self.visible_columns]
+        self.lib_instance = ChemLibrary(self.libraries[0])
+        library_df = self.lib_instance.library[self.visible_columns]
         self.compound_table = pn.widgets.Tabulator(library_df,
                                                    height=800,
                                                    width=800,
@@ -33,7 +32,9 @@ class ChemGUI(param.Parameterized):
 
     @param.depends('lib_select', watch=True)
     def update_compound_df(self):
-        self.compound_table.value = self.lib_select.library[self.visible_columns]
+        self.lib_instance = ChemLibrary(self.lib_select)
+        library_df = self.lib_instance.library[self.visible_columns]
+        self.compound_table.value = library_df[self.visible_columns]
         self.compound_input = ''
         self.selected_compound = ''
         self.compound_table.visible = False
@@ -43,7 +44,7 @@ class ChemGUI(param.Parameterized):
     def load_compounds(self):
         compounds = re.findall(r'\d+', self.compound_input)
         if compounds:
-            new_df = self.lib_select.get_compounds(compounds)[self.visible_columns].reset_index()
+            new_df = self.lib_instance.get_compounds(compounds)[self.visible_columns].reset_index()
             self.compound_table.value = new_df
             self.compound_table.visible = True
 
@@ -55,7 +56,7 @@ class ChemGUI(param.Parameterized):
 
     def on_click(self, event):
         compound = self.compound_table.value.loc[event.row, 'Compound']
-        image = self.lib_select.draw_compound(compound)
+        image = self.lib_instance.draw_compound(compound)
         self.selected_compound = '### Compound ID: '+compound
         self.compound_image.object = image
 
